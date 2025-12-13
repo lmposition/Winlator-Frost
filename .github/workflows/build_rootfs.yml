@@ -4,6 +4,22 @@ permissions:
   contents: write
 
 on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'build-rootfs2.sh'
+      - 'arch-bootstrap.sh'
+      - 'data.tar.xz'
+      - 'tzdata-*.pkg.tar.xz'
+      - '.github/workflows/build_rootfs.yml'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'build-rootfs2.sh'
+      - 'arch-bootstrap.sh'
+      - 'data.tar.xz'
+      - 'tzdata-*.pkg.tar.xz'
+      - '.github/workflows/build_rootfs.yml'
   workflow_dispatch:
     inputs:
       inputGstVersion:
@@ -28,15 +44,16 @@ on:
         default: "beta11-g2.39"
 
 env:
-  gstVer: ${{ github.event.inputs.inputGstVersion }}
-  xzVer: ${{ github.event.inputs.inputXzVersion }}
-  libxkbcommonVer: ${{ github.event.inputs.inputLibxkbcommonVersion }}
-  mangohudVer: ${{ github.event.inputs.inputMangoHudVersion }}
-  customTag: ${{ github.event.inputs.inputCustomTag }}
+  gstVer: ${{ github.event.inputs.inputGstVersion || '1.27.2' }}
+  xzVer: ${{ github.event.inputs.inputXzVersion || 'v5.8.1' }}
+  libxkbcommonVer: ${{ github.event.inputs.inputLibxkbcommonVersion || 'xkbcommon-1.7.0' }}
+  mangohudVer: ${{ github.event.inputs.inputMangoHudVersion || 'v0.7.1' }}
+  customTag: ${{ github.event.inputs.inputCustomTag || 'beta11-g2.39' }}
 
 jobs:
   build-rootfs2:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     
     steps:
       - name: Checkout repository
@@ -131,20 +148,38 @@ jobs:
 
       - name: Build rootfs with GStreamer, libxkbcommon and MangoHud
         run: |
-          sudo chroot /tmp/archlinux /tmp/build-rootfs2.sh
+          set -e
+          if ! sudo chroot /tmp/archlinux /tmp/build-rootfs2.sh; then
+            echo "Build failed, cleaning up..."
+            sudo umount -l /tmp/archlinux/dev || true
+            sudo umount -l /tmp/archlinux/sys || true
+            sudo umount -l /tmp/archlinux/proc || true
+            exit 1
+          fi
           
-          sudo umount -l /tmp/archlinux/dev
-          sudo umount -l /tmp/archlinux/sys
-          sudo umount -l /tmp/archlinux/proc
+          sudo umount -l /tmp/archlinux/dev || true
+          sudo umount -l /tmp/archlinux/sys || true
+          sudo umount -l /tmp/archlinux/proc || true
 
       - name: Upload RootFS Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rootfs-${{ github.event.inputs.inputCustomTag }}
+          name: rootfs-${{ env.customTag }}
           path: |
             /tmp/archlinux/tmp/output/output-lite.tar.xz
             /tmp/archlinux/tmp/output/output-full.tar.xz
             /tmp/archlinux/tmp/output/rootfs.tzst
+
+      - name: Create build summary
+        if: success()
+        run: |
+          echo "## 🗂️ RootFS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **GStreamer Version**: ${{ env.gstVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **XZ Version**: ${{ env.xzVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **libxkbcommon Version**: ${{ env.libxkbcommonVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **MangoHud Version**: ${{ env.mangohudVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Custom Tag**: ${{ env.customTag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
         if: always()

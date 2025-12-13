@@ -1,0 +1,102 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      box64-changed: ${{ steps.changes.outputs.box64 }}
+      rootfs-changed: ${{ steps.changes.outputs.rootfs }}
+      app-changed: ${{ steps.changes.outputs.app }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "box64=true" >> $GITHUB_OUTPUT
+            echo "rootfs=true" >> $GITHUB_OUTPUT
+            echo "app=true" >> $GITHUB_OUTPUT
+          else
+            if git diff --name-only HEAD~1 HEAD | grep -E "(box64|\.github/workflows/build-box64\.yml)" > /dev/null; then
+              echo "box64=true" >> $GITHUB_OUTPUT
+            else
+              echo "box64=false" >> $GITHUB_OUTPUT
+            fi
+            
+            if git diff --name-only HEAD~1 HEAD | grep -E "(build-rootfs|arch-bootstrap|data\.tar\.xz|tzdata.*\.pkg\.tar\.xz|\.github/workflows/build_rootfs\.yml)" > /dev/null; then
+              echo "rootfs=true" >> $GITHUB_OUTPUT
+            else
+              echo "rootfs=false" >> $GITHUB_OUTPUT
+            fi
+            
+            if git diff --name-only HEAD~1 HEAD | grep -E "(app/|\.github/workflows/ci\.yml)" > /dev/null; then
+              echo "app=true" >> $GITHUB_OUTPUT
+            else
+              echo "app=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  build-app:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app-changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
+
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: winlator-apk
+          path: app/build/outputs/apk/**/*.apk
+
+  call-box64-build:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.box64-changed == 'true'
+    uses: ./.github/workflows/build-box64.yml
+
+  call-rootfs-build:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rootfs-changed == 'true'
+    uses: ./.github/workflows/build_rootfs.yml

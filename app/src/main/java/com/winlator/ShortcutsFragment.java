@@ -8,11 +8,14 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -33,6 +36,7 @@ import java.util.List;
 public class ShortcutsFragment extends Fragment {
     private RecyclerView recyclerView;
     private TextView emptyTextView;
+    private Button exportButton;
     private ContainerManager manager;
 
     @Override
@@ -52,12 +56,17 @@ public class ShortcutsFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        FrameLayout frameLayout = (FrameLayout)inflater.inflate(R.layout.shortcuts_fragment, container, false);
-        recyclerView = frameLayout.findViewById(R.id.RecyclerView);
-        emptyTextView = frameLayout.findViewById(R.id.TVEmptyText);
+        LinearLayout linearLayout = (LinearLayout)inflater.inflate(R.layout.shortcuts_fragment, container, false);
+        recyclerView = linearLayout.findViewById(R.id.RecyclerView);
+        emptyTextView = linearLayout.findViewById(R.id.TVEmptyText);
+        exportButton = linearLayout.findViewById(R.id.BTExportToDaijisho);
+        
         recyclerView.setLayoutManager(new LinearLayoutManager(recyclerView.getContext()));
         recyclerView.addItemDecoration(new DividerItemDecoration(recyclerView.getContext(), DividerItemDecoration.VERTICAL));
-        return frameLayout;
+        
+        exportButton.setOnClickListener(v -> exportShortcutsToDaijisho());
+        
+        return linearLayout;
     }
 
     public void loadShortcutsList() {
@@ -143,6 +152,18 @@ public class ShortcutsFragment extends Fragment {
                 activity.startActivity(intent);
             }
             else XrActivity.openIntent(activity, shortcut.container.id, shortcut.file.getPath());
+        }
+    }
+
+    private void exportShortcutsToDaijisho() {
+        MainActivity mainActivity = (MainActivity) getActivity();
+        if (mainActivity != null) {
+            mainActivity.preloaderDialog.show(R.string.exporting_shortcuts);
+            
+            manager.exportShortcutsForDaijishoAsync(() -> {
+                mainActivity.preloaderDialog.close();
+                Toast.makeText(getContext(), R.string.shortcuts_exported_successfully, Toast.LENGTH_LONG).show();
+            });
         }
     }
 }
