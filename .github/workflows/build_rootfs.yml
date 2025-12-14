@@ -20,6 +20,33 @@ on:
       - 'data.tar.xz'
       - 'tzdata-*.pkg.tar.xz'
       - '.github/workflows/build_rootfs.yml'
+  workflow_call:
+    inputs:
+      inputGstVersion:
+        description: "GStreamer version"
+        required: false
+        default: "1.27.2"
+        type: string
+      inputXzVersion:
+        description: "XZ version"
+        required: false
+        default: "v5.8.1"
+        type: string
+      inputLibxkbcommonVersion:
+        description: "libxkbcommon version"
+        required: false
+        default: "xkbcommon-1.7.0"
+        type: string
+      inputMangoHudVersion:
+        description: "MangoHud version"
+        required: false
+        default: "v0.7.1"
+        type: string
+      inputCustomTag:
+        description: "Custom tag name"
+        required: false
+        default: "beta11-g2.39"
+        type: string
   workflow_dispatch:
     inputs:
       inputGstVersion:
@@ -44,11 +71,11 @@ on:
         default: "beta11-g2.39"
 
 env:
-  gstVer: ${{ github.event.inputs.inputGstVersion || '1.27.2' }}
-  xzVer: ${{ github.event.inputs.inputXzVersion || 'v5.8.1' }}
-  libxkbcommonVer: ${{ github.event.inputs.inputLibxkbcommonVersion || 'xkbcommon-1.7.0' }}
-  mangohudVer: ${{ github.event.inputs.inputMangoHudVersion || 'v0.7.1' }}
-  customTag: ${{ github.event.inputs.inputCustomTag || 'beta11-g2.39' }}
+  gstVer: ${{ inputs.inputGstVersion || github.event.inputs.inputGstVersion || '1.27.2' }}
+  xzVer: ${{ inputs.inputXzVersion || github.event.inputs.inputXzVersion || 'v5.8.1' }}
+  libxkbcommonVer: ${{ inputs.inputLibxkbcommonVersion || github.event.inputs.inputLibxkbcommonVersion || 'xkbcommon-1.7.0' }}
+  mangohudVer: ${{ inputs.inputMangoHudVersion || github.event.inputs.inputMangoHudVersion || 'v0.7.1' }}
+  customTag: ${{ inputs.inputCustomTag || github.event.inputs.inputCustomTag || 'beta11-g2.39' }}
 
 jobs:
   build-rootfs2:

@@ -95,8 +95,16 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.box64-changed == 'true'
     uses: ./.github/workflows/build-box64.yml
+    with:
+      box64_version: 'main'
 
   call-rootfs-build:
     needs: detect-changes
     if: needs.detect-changes.outputs.rootfs-changed == 'true'
     uses: ./.github/workflows/build_rootfs.yml
+    with:
+      inputGstVersion: '1.27.2'
+      inputXzVersion: 'v5.8.1'
+      inputLibxkbcommonVersion: 'xkbcommon-1.7.0'
+      inputMangoHudVersion: 'v0.7.1'
+      inputCustomTag: 'beta11-g2.39'

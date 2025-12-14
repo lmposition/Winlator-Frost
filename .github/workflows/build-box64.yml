@@ -5,6 +5,13 @@ on:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master, develop ]
+  workflow_call:
+    inputs:
+      box64_version:
+        description: 'Box64 Version (branch, tag, or commit hash)'
+        required: false
+        default: 'main'
+        type: string
   workflow_dispatch:
     inputs:
       box64_version:
@@ -40,6 +47,8 @@ jobs:
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           echo "BOX64_REF=${{ github.event.inputs.box64_version }}" >> $GITHUB_ENV
+        elif [ "${{ github.event_name }}" = "workflow_call" ]; then
+          echo "BOX64_REF=${{ inputs.box64_version }}" >> $GITHUB_ENV
         else
           echo "BOX64_REF=main" >> $GITHUB_ENV
         fi
